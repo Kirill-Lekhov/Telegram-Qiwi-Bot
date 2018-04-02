@@ -64,7 +64,7 @@ def last(bot, update, user_data):
         if not answer:
             update.message.reply_text("There are no recent transactions", reply_markup=markup)
         else:
-            update.message.reply_text("There are no recent transactions", reply_markup=markup)
+            update.message.reply_text(answer, reply_markup=markup)
     except TransactionNotFound:
         update.message.reply_text("Query execution failed", reply_markup=markup)
     return 2
