@@ -76,16 +76,23 @@ def terminals(bot, update):
     return 5
 
 
-def take_address(bot, update, user_data):
+def take_command_found_address(bot, update, user_data):
     user_data["map"] = update.message.text == "on map"
-    update.message.reply_text("Enter address")
+    markup = ReplyKeyboardMarkup(terminals2_keyboard, one_time_keyboard=False)
+    update.message.reply_text("Select command", reply_markup=markup)
     return 6
+
+
+def take_address(bot, update):
+    update.message.reply_text("Enter address")
+    return 7
 
 
 def answer_about_terminates(bot, update, user_data):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
     try:
-        url, address = user_data["user"].get_map_terminates(update.message.text)
+        url, address = user_data["user"].get_map_terminates(update.message.text if update.message.text != "last ip"
+                                                            else None)
     except NotFoundAddress:
         update.message.reply_text("Wrong address", reply_markup=markup)
         return 2
@@ -111,7 +118,7 @@ def answer_about_terminates(bot, update, user_data):
 def options(bot, update):
     markup = ReplyKeyboardMarkup(options_keyboard, one_time_keyboard=False)
     update.message.reply_text("Select command", reply_markup=markup)
-    return 7
+    return 8
 
 
 def get_info(bot, update, user_data):
@@ -157,6 +164,7 @@ def stop(bot, update):
 start_keyboard = [["/balance", "/pay"], ["/transactions", "/check"], ["/terminals", "/options"]]
 transactions_keyboard = [["check status", "last"], ["/back"]]
 terminals_keyboard = [["on map", "address"], ["/back"]]
+terminals2_keyboard = [["last ip", "enter address"], ["/back"]]
 options_keyboard = [["change token", "version"], ["update user", "get info"], ["/back"]]
 markup = None
 
@@ -180,11 +188,14 @@ def main():
                     CommandHandler("back", back)],
                 4: [MessageHandler(Filters.text, answer_about_transaction, pass_user_data=True)],
 
-                5: [RegexHandler("on map|address", take_address, pass_user_data=True),
+                5: [RegexHandler("on map|address", take_command_found_address, pass_user_data=True),
                     CommandHandler("back", back)],
-                6: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True)],
+                6: [RegexHandler("^enter address$", take_address),
+                    RegexHandler("^last ip$", answer_about_terminates, pass_user_data=True),
+                    CommandHandler("back", back)],
+                7: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True)],
 
-                7: [RegexHandler("^change token$", take_new_token),
+                8: [RegexHandler("^change token$", take_new_token),
                     RegexHandler("^update user$", update_user, pass_user_data=True),
                     RegexHandler("^version$", version),
                     RegexHandler("^get info$", get_info, pass_user_data=True),

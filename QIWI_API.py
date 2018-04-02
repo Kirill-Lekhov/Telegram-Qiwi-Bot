@@ -58,6 +58,18 @@ def run_the_query(headers, url):
         return False
 
 
+def found_address(ip):
+    try:
+        response = requests.get('http://freegeoip.net/json/{}'.format(ip))
+        if response:
+            json_response = response.json()
+            return json_response["city"]
+        else:
+            return False
+    except:
+        return False
+
+
 class UserQiwi:
     def __init__(self, token):
         self.token = token
@@ -191,7 +203,10 @@ class UserQiwi:
         except:
             raise TransactionNotFound
 
-    def get_map_terminates(self, address):
+    def get_map_terminates(self, address=None):
+        if not address:
+            address = found_address(self.user_date["last_ip"])
+
         geocoder_url = "http://geocode-maps.yandex.ru/1.x/"
         geocoder_params = {"geocode": address,
                            "format": "json"}
@@ -201,7 +216,10 @@ class UserQiwi:
                 json_response = response.json()
                 toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
                 components = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]["Components"]
-                locality = [i["name"] for i in components if i["kind"] == "locality"][0]
+                try:
+                    locality = [i["name"] for i in components if i["kind"] == "locality"][0]
+                except IndexError:
+                    locality = address
             else:
                 raise NotFoundAddress
         except:
