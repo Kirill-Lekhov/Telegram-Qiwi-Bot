@@ -1,16 +1,20 @@
 from telegram.ext import Updater, Filters, CommandHandler, ConversationHandler, MessageHandler, RegexHandler
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from urllib.parse import unquote
+import json
+import os
 from QIWI_API import UserQiwi
-from QIWI_API import QiwiError, SintaksisError, TokenError, NoRightsError, TransactionNotFound, WalletError, \
-    HistoryError, MapError, NotFoundAddress
-
+from QIWI_API import QiwiError, SyntaxisError, TokenError, NoRightsError, TransactionNotFound, WalletError, \
+    HistoryError, MapError, NotFoundAddress, CheckError, WrongEmail
 
 VERSION = "Bot v0.1\nQiwiAPI v0.1"
+LANGUAGE = "eng"
+LANGUAGES = json.load(open("Languages.json"))
+DIALOGS = LANGUAGES[LANGUAGE]
 
 
 def start(bot, update):
-    update.message.reply_text("Please enter your token")
+    update.message.reply_text(DIALOGS["start"])
     return 1
 
 
@@ -19,10 +23,10 @@ def check_token(bot, update, user_data):
     try:
         user_data["user"] = UserQiwi(user_data["token"])
         markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
-        update.message.reply_text("Select command", reply_markup=markup)
+        update.message.reply_text(DIALOGS["command"], reply_markup=markup)
         return 2
     except TokenError:
-        update.message.reply_text("Error!")
+        update.message.reply_text(DIALOGS["error"])
         start(bot, update)
 
 
@@ -31,18 +35,18 @@ def balance(bot, update, user_data):
         update.message.reply_text(user_data["user"].get_balance())
         return 2
     except QiwiError:
-        update.message.reply_text("Failed to execute query")
+        update.message.reply_text(DIALOGS["q_error"])
         return 2
 
 
 def transactions(bot, update):
     markup = ReplyKeyboardMarkup(transactions_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Select command", reply_markup=markup)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 3
 
 
 def check_status(bot, update):
-    update.message.reply_text("Enter transaction id")
+    update.message.reply_text(DIALOGS["transaction_id"], reply_markup=ReplyKeyboardRemove())
     return 4
 
 
@@ -53,7 +57,7 @@ def answer_about_transaction(bot, update, user_data):
                                   reply_markup=markup)
 
     except TransactionNotFound:
-        update.message.reply_text("Error. Transaction not found", reply_markup=markup)
+        update.message.reply_text(DIALOGS["tr_error"], reply_markup=markup)
     return 2
 
 
@@ -62,42 +66,43 @@ def last(bot, update, user_data):
     try:
         answer = user_data["user"].get_last_transactions()
         if not answer:
-            update.message.reply_text("There are no recent transactions", reply_markup=markup)
+            update.message.reply_text(DIALOGS["no_recent_tr"], reply_markup=markup)
         else:
             update.message.reply_text(answer, reply_markup=markup)
     except TransactionNotFound:
-        update.message.reply_text("Query execution failed", reply_markup=markup)
+        update.message.reply_text(DIALOGS["q_error"], reply_markup=markup)
     return 2
 
 
 def terminals(bot, update):
     markup = ReplyKeyboardMarkup(terminals_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Select command", reply_markup=markup)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 5
 
 
 def take_command_found_address(bot, update, user_data):
-    user_data["map"] = update.message.text == "on map"
+    user_data["map"] = update.message.text == DIALOGS["on map"]
     markup = ReplyKeyboardMarkup(terminals2_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Select command", reply_markup=markup)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 6
 
 
 def take_address(bot, update):
-    update.message.reply_text("Enter address")
+    update.message.reply_text(DIALOGS["ent_address"], reply_markup=ReplyKeyboardRemove())
     return 7
 
 
 def answer_about_terminates(bot, update, user_data):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
     try:
-        url, address = user_data["user"].get_map_terminates(update.message.text if update.message.text != "last ip"
+        url, address = user_data["user"].get_map_terminates(update.message.text
+                                                            if update.message.text != DIALOGS["last ip"]
                                                             else None)
     except NotFoundAddress:
-        update.message.reply_text("Wrong address", reply_markup=markup)
+        update.message.reply_text(DIALOGS["wrong_address"], reply_markup=markup)
         return 2
     except MapError:
-        update.message.reply_text("Unable to retrieve data", reply_markup=markup)
+        update.message.reply_text(DIALOGS["data_error"], reply_markup=markup)
         return 2
 
     if user_data["map"]:
@@ -117,7 +122,7 @@ def answer_about_terminates(bot, update, user_data):
 
 def options(bot, update):
     markup = ReplyKeyboardMarkup(options_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Select command", reply_markup=markup)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 8
 
 
@@ -128,14 +133,14 @@ def get_info(bot, update, user_data):
 
 
 def take_new_token(bot, update):
-    update.message.reply_text("Please enter your new token", reply_markup=markup)
+    update.message.reply_text(DIALOGS["new_token"], reply_markup=markup)
     return 1
 
 
 def update_user(bot, update, user_data):
     user_data["user"].update_info()
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Updated account information", reply_markup=markup)
+    update.message.reply_text(DIALOGS["up_acc_inf"], reply_markup=markup)
     return 2
 
 
@@ -145,61 +150,162 @@ def version(bot, update):
     return 2
 
 
+def check(bot, update, user_data):
+    user_data["check_type_rest"] = None
+    markup = ReplyKeyboardMarkup(check_keyboard, one_time_keyboard=False)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
+    return 9
+
+
+def dialog_email(bot, update, user_data):
+    user_data["check_type_rest"] = "email"
+    user_data["email"] = None
+    markup = ReplyKeyboardMarkup(email_keyboard, one_time_keyboard=False)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
+    return 10
+
+
+def enter_email(bot, update):
+    update.message.reply_text(DIALOGS["enter email"], reply_markup=ReplyKeyboardRemove())
+    return 11
+
+
+def get_email(bot, update, user_data):
+    user_data["email"] = update.message.text
+    update.message.reply_text(DIALOGS["enter transaction id"])
+    return 13
+
+
+def enter_transaction_id(bot, update):
+    update.message.reply_text(DIALOGS["enter transaction id"], reply_markup=ReplyKeyboardRemove())
+    return 13
+
+
+def get_transaction_id(bot, update, user_data):
+    markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
+    if user_data["check_type_rest"] == "email":
+        if user_data["email"] is None:
+            try:
+                user_data["user"].send_check_email(update.message.text)
+                update.message.reply_text(DIALOGS["sent check"], reply_markup=markup)
+            except TransactionNotFound:
+                update.message.reply_text(DIALOGS["tr_error"], reply_markup=markup)
+            except WrongEmail:
+                update.message.reply_text(DIALOGS["error email"], reply_markup=markup)
+        else:
+            try:
+                user_data["user"].send_check_email(update.message.text, user_data["email"])
+                update.message.reply_text(DIALOGS["sent check"], reply_markup=markup)
+            except TransactionNotFound:
+                update.message.reply_text(DIALOGS["tr_error"], reply_markup=markup)
+            except WrongEmail:
+                update.message.reply_text(DIALOGS["error email"], reply_markup=markup)
+
+    else:
+        name = str(update.message.chat_id) + ".jpeg"
+        try:
+            user_data["user"].get_image_check(update.message.text, name)
+            bot.sendPhoto(update.message.chat_id, open(name, mode="rb"), reply_markup=markup)
+            os.remove(name)
+        except TransactionNotFound:
+            update.message.reply_text(DIALOGS["tr_error"], reply_markup=markup)
+        except CheckError:
+            update.message.reply_text(DIALOGS["check error"], reply_markup=markup)
+    return 2
+
+
 def not_found(bot, update):
-    update.message.reply_text("Function will appear soon")
+    update.message.reply_text(DIALOGS["func_app_soon"])
     return 2
 
 
 def back(bot, update):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
-    update.message.reply_text("Select command", reply_markup=markup)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 2
 
 
 def stop(bot, update):
-    update.message.reply_text("Shut down", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["off"], reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
-start_keyboard = [["/balance", "/pay"], ["/transactions", "/check"], ["/terminals", "/options"]]
-transactions_keyboard = [["check status", "last"], ["/back"]]
-terminals_keyboard = [["on map", "address"], ["/back"]]
-terminals2_keyboard = [["last ip", "enter address"], ["/back"]]
-options_keyboard = [["change token", "version"], ["update user", "get info"], ["/back"]]
+button_back = ["/{}".format(DIALOGS["back"])]
+
+start_keyboard = [["/{}".format(DIALOGS["balance"]), "/{}".format(DIALOGS["pay"])],
+                  ["/{}".format(DIALOGS["transactions"]), "/{}".format(DIALOGS["check"])],
+                  ["/{}".format(DIALOGS["terminals"]), "/{}".format(DIALOGS["options"])]]
+
+transactions_keyboard = [[DIALOGS["check status"], DIALOGS["last"]],
+                         button_back]
+
+terminals_keyboard = [[DIALOGS["on map"], DIALOGS["address"]],
+                      button_back]
+
+terminals2_keyboard = [[DIALOGS["last ip"], DIALOGS["enter address"]],
+                       button_back]
+
+options_keyboard = [[DIALOGS["change token"], DIALOGS["version"]],
+                    [DIALOGS["update user"], DIALOGS["get info"]],
+                    button_back]
+
+check_keyboard = [[DIALOGS["get image"], DIALOGS["send to email"]],
+                  button_back]
+
+email_keyboard = [[DIALOGS["my email"], DIALOGS["other email"]],
+                  button_back]
+
 markup = None
 
 
 def main():
     updater = Updater("TOKEN")
     dp = updater.dispatcher
+    command_back = CommandHandler(LANGUAGES[LANGUAGE]["back"], back)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={1: [MessageHandler(Filters.text, check_token, pass_user_data=True)],
-                2: [CommandHandler("balance", balance, pass_user_data=True),
-                    CommandHandler("pay", not_found),
-                    CommandHandler("transactions", transactions),
-                    CommandHandler("check", not_found),
-                    CommandHandler("terminals", terminals),
-                    CommandHandler("options", options)],
+                2: [CommandHandler(DIALOGS["balance"], balance, pass_user_data=True),
+                    CommandHandler(DIALOGS["pay"], not_found),
+                    CommandHandler(DIALOGS["transactions"], transactions),
+                    CommandHandler(DIALOGS["check"], check, pass_user_data=True),
+                    CommandHandler(DIALOGS["terminals"], terminals),
+                    CommandHandler(DIALOGS["options"], options)],
 
-                3: [RegexHandler("^check status$", check_status),
-                    RegexHandler("^last$", last, pass_user_data=True),
-                    CommandHandler("back", back)],
+                3: [RegexHandler("^{}$".format(DIALOGS["check status"]), check_status),
+                    RegexHandler("^{}$".format(DIALOGS["last"]), last, pass_user_data=True),
+                    command_back],
                 4: [MessageHandler(Filters.text, answer_about_transaction, pass_user_data=True)],
 
-                5: [RegexHandler("on map|address", take_command_found_address, pass_user_data=True),
-                    CommandHandler("back", back)],
-                6: [RegexHandler("^enter address$", take_address),
-                    RegexHandler("^last ip$", answer_about_terminates, pass_user_data=True),
-                    CommandHandler("back", back)],
+                5: [RegexHandler("{}|{}".format(DIALOGS["on map"], DIALOGS["address"]),
+                                 take_command_found_address, pass_user_data=True),
+                    command_back],
+                6: [RegexHandler("^{}$".format(DIALOGS["enter address"]), take_address),
+                    RegexHandler("^{}$".format(DIALOGS["last ip"]), answer_about_terminates,
+                                 pass_user_data=True),
+                    command_back],
                 7: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True)],
 
-                8: [RegexHandler("^change token$", take_new_token),
-                    RegexHandler("^update user$", update_user, pass_user_data=True),
-                    RegexHandler("^version$", version),
-                    RegexHandler("^get info$", get_info, pass_user_data=True),
-                    CommandHandler("back", back)]},
+                8: [RegexHandler("^{}$".format(DIALOGS["change token"]), take_new_token),
+                    RegexHandler("^{}$".format(DIALOGS["update user"]), update_user, pass_user_data=True),
+                    RegexHandler("^{}$".format(DIALOGS["version"]), version),
+                    RegexHandler("^{}$".format(DIALOGS["get info"]), get_info, pass_user_data=True),
+                    command_back],
+
+                9: [RegexHandler("^{}$".format(DIALOGS["get image"]), enter_transaction_id),
+                    RegexHandler("^{}$".format(DIALOGS["send to email"]), dialog_email, pass_user_data=True),
+                    command_back],
+
+                10: [RegexHandler("^{}$".format(DIALOGS["my email"]), enter_transaction_id),
+                     RegexHandler("^{}$".format(DIALOGS["other email"]), enter_email),
+                     command_back],
+
+                11: [MessageHandler(Filters.text, get_email, pass_user_data=True)],
+                12: [MessageHandler(Filters.text, enter_transaction_id)],
+                13: [MessageHandler(Filters.text, get_transaction_id, pass_user_data=True)]},
+
+
         fallbacks=[CommandHandler("stop", stop)]
     )
 

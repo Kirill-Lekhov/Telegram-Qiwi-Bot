@@ -9,7 +9,7 @@ class QiwiError(Exception):
     pass
 
 
-class SintaksisError(QiwiError):
+class SyntaxisError(QiwiError):
     def __init__(self):
         self.text = "Query execution failed"
 
@@ -49,6 +49,16 @@ class NotFoundAddress(MapError):
         self.text = "Could not find address"
 
 
+class CheckError(QiwiError):
+    def __init__(self):
+        self.text = "Could not get check"
+
+
+class WrongEmail(CheckError):
+    def __init__(self):
+        self.text = "Wrong Email address"
+
+
 def run_the_query(headers, url):
     try:
         req = urllib.request.Request(url, headers=headers)
@@ -70,18 +80,35 @@ def found_address(ip):
         return False
 
 
+def write_file(headers, url, file_name):
+    try:
+        req = urllib.request.Request(url, headers=headers)
+
+        with open(file_name, mode='wb') as f:
+            res = urllib.request.urlopen(req).read()
+            f.write(res)
+
+        return True
+    except:
+        return False
+
+
 class UserQiwi:
+    url = "https://edge.qiwi.com/"
+
     def __init__(self, token):
         self.token = token
         self.headers = {"Accept": "application/json",
                         "Content-Type": "application/json",
                         "Authorization": "Bearer {}".format(self.token)}
-        self.urls = {"Profile": ("https://edge.qiwi.com/person-profile/v1/profile/current?", ["authInfoEnabled",
-                                                                                              "contractInfoEnabled",
-                                                                                              "userInfoEnabled"]),
-                     "Balance": ("https://edge.qiwi.com/funding-sources/v1/accounts/current", None),
-                     "Transactions": ("https://edge.qiwi.com/payment-history/v2/persons/{}/payments?rows={}", None),
-                     "Transaction": ("https://edge.qiwi.com/payment-history/v2/transactions/{}", None)}
+        self.urls = {"Profile": (UserQiwi.url + "person-profile/v1/profile/current?", ["authInfoEnabled",
+                                                                                       "contractInfoEnabled",
+                                                                                       "userInfoEnabled"]),
+                     "Balance": (UserQiwi.url + "{url}funding-sources/v1/accounts/current", None),
+                     "Transactions": (UserQiwi.url + "payment-history/v2/persons/{}/payments?rows={}", None),
+                     "Transaction": (UserQiwi.url + "payment-history/v2/transactions/{}", None),
+                     "Check": (UserQiwi.url + "payment-history/v1/transactions/{}/cheque/{}?type={}{}",
+                               None)}
         self.currency = {643: "RUB",
                          840: "USD",
                          978: "EUR",
@@ -211,7 +238,7 @@ class UserQiwi:
         geocoder_params = {"geocode": address,
                            "format": "json"}
         try:
-            response = requests.get(geocoder_url, geocoder_params)
+            response = requests.get(geocoder_url, params=geocoder_params)
             if response:
                 json_response = response.json()
                 toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
@@ -220,14 +247,9 @@ class UserQiwi:
                     locality = [i["name"] for i in components if i["kind"] == "locality"][0]
                 except IndexError:
                     locality = address
-            else:
-                raise NotFoundAddress
-        except:
-            raise MapError
 
-        geocoder_params["geocode"] = locality
-        try:
-            response = requests.get(geocoder_url, geocoder_params)
+            geocoder_params["geocode"] = locality
+            response = requests.get(geocoder_url, params=geocoder_params)
             if response:
                 json_response = response.json()
                 toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
@@ -272,3 +294,35 @@ class UserQiwi:
 
         return map_api_server + "?l={}&pt={}&bbox={}".format(map_params["l"], map_params["pt"],
                                                              map_params["bbox"]), address
+
+    def get_image_check(self, transaction_id, file_name="check.jpg"):
+        answer = run_the_query(self.headers, self.urls["Transaction"][0].format(transaction_id))
+
+        if not answer:
+            raise TransactionNotFound
+
+        typ = answer['type']
+        write = write_file(self.headers, self.urls["Check"][0].format(transaction_id, "file", typ, "&format=JPEG"),
+                           file_name)
+
+        if not write:
+            raise CheckError
+
+        return True
+
+    def send_check_email(self, transaction_id, email=None):
+        answer = run_the_query(self.headers, self.urls["Transaction"][0].format(transaction_id))
+
+        if not answer:
+            raise TransactionNotFound
+
+        typ = answer['type']
+        email = {"email": self.user_date["email"] if email is None else email}
+
+        request = requests.post(self.urls["Check"][0].format(transaction_id, "send", typ, ''),
+                                data=json.dumps(email),
+                                headers=self.headers)
+        if request:
+            return True
+        else:
+            raise WrongEmail
