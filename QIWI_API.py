@@ -59,6 +59,16 @@ class WrongEmail(CheckError):
         self.text = "Wrong Email address"
 
 
+class WrongNumber(QiwiError):
+    def __init__(self):
+        self.text = "Wrong phone number"
+
+
+class TransactionError(QiwiError):
+    def __init__(self):
+        self.text = "Failed to carry out the transaction"
+
+
 def run_the_query(headers, url):
     try:
         req = urllib.request.Request(url, headers=headers)
@@ -93,6 +103,24 @@ def write_file(headers, url, file_name):
         return False
 
 
+def found_id(number):
+    headers = {"Accept": "application/json",
+               "Content-Type": "application/x-www-form-urlencoded"}
+    data = urllib.parse.urlencode({"phone": "+" + number})
+    try:
+        request = requests.post("https://qiwi.com/mobile/detect.action", data=data, headers=headers)
+        if request:
+            answer = request.json()
+            if answer["code"]["value"] != '0':
+                return False
+            return answer["message"]
+
+        else:
+            return False
+    except:
+        return False
+
+
 class UserQiwi:
     url = "https://edge.qiwi.com/"
 
@@ -104,11 +132,13 @@ class UserQiwi:
         self.urls = {"Profile": (UserQiwi.url + "person-profile/v1/profile/current?", ["authInfoEnabled",
                                                                                        "contractInfoEnabled",
                                                                                        "userInfoEnabled"]),
-                     "Balance": (UserQiwi.url + "{url}funding-sources/v1/accounts/current", None),
+                     "Balance": (UserQiwi.url + "funding-sources/v1/accounts/current", None),
                      "Transactions": (UserQiwi.url + "payment-history/v2/persons/{}/payments?rows={}", None),
                      "Transaction": (UserQiwi.url + "payment-history/v2/transactions/{}", None),
                      "Check": (UserQiwi.url + "payment-history/v1/transactions/{}/cheque/{}?type={}{}",
-                               None)}
+                               None),
+                     "Phone pay": (UserQiwi.url + "sinap/api/v2/terms/{}/payments", None),
+                     "Qiwi pay": (UserQiwi.url + "sinap/api/v2/terms/99/payments", None)}
         self.currency = {643: "RUB",
                          840: "USD",
                          978: "EUR",
@@ -302,6 +332,7 @@ class UserQiwi:
             raise TransactionNotFound
 
         typ = answer['type']
+        print(self.urls["Check"][0].format(transaction_id, "file", typ, "&format=JPEG"))
         write = write_file(self.headers, self.urls["Check"][0].format(transaction_id, "file", typ, "&format=JPEG"),
                            file_name)
 
@@ -326,3 +357,61 @@ class UserQiwi:
             return True
         else:
             raise WrongEmail
+
+    def transaction_telephone(self, amount, number=None):
+        if number is None:
+            number = str(self.user_date["id"])
+
+        number_id = found_id(number)
+
+        if not number_id:
+            raise WrongNumber
+
+        number = number[1:]
+
+        try:
+            amount = round(float(amount), 2)
+        except TypeError:
+            raise WalletError
+
+        data = {"id": str(int(time.time() * 1000)),
+                "sum": {"amount": amount,
+                        "currency": "643"},
+                "paymentMethod": {"type": "Account",
+                                  "accountId": "643"},
+                "fields": {"account": number}}
+
+        try:
+            request = requests.post(self.urls["Phone pay"][0].format(number_id), data=json.dumps(data),
+                                    headers=self.headers)
+            if request:
+                answer = request.json()
+                return "Successfully. Transaction ID: {}".format(answer["transaction"]["id"])
+            else:
+                raise TransactionError
+        except:
+            raise TransactionError
+
+    def transaction_qiwi(self, account_id, amount):
+        try:
+            amount = round(float(amount), 2)
+        except TypeError:
+            raise WalletError
+
+        data = {"id": str(int(time.time() * 1000)),
+                "sum": {"amount": amount,
+                        "currency": "643"},
+                "paymentMethod": {"type": "Account",
+                                  "accountId": "643"},
+                "comment": "test",
+                "fields": {"account": account_id}}
+
+        try:
+            request = requests.post(self.urls["Qiwi pay"][0], data=json.dumps(data),headers=self.headers)
+            if request:
+                answer = request.json()
+                return "Successfully. Transaction ID: {}".format(answer["transaction"]["id"])
+            else:
+                raise TransactionError
+        except:
+            raise TransactionError

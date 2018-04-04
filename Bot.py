@@ -5,7 +5,7 @@ import json
 import os
 from QIWI_API import UserQiwi
 from QIWI_API import QiwiError, SyntaxisError, TokenError, NoRightsError, TransactionNotFound, WalletError, \
-    HistoryError, MapError, NotFoundAddress, CheckError, WrongEmail
+    HistoryError, MapError, NotFoundAddress, CheckError, WrongEmail, WrongNumber, TransactionError
 
 VERSION = "Bot v0.1\nQiwiAPI v0.1"
 LANGUAGE = "eng"
@@ -133,7 +133,7 @@ def get_info(bot, update, user_data):
 
 
 def take_new_token(bot, update):
-    update.message.reply_text(DIALOGS["new_token"], reply_markup=markup)
+    update.message.reply_text(DIALOGS["new_token"], reply_markup=ReplyKeyboardRemove())
     return 1
 
 
@@ -214,6 +214,83 @@ def get_transaction_id(bot, update, user_data):
     return 2
 
 
+def pay(bot, update, user_data):
+    user_data["check_type_rest"] = None
+    markup = ReplyKeyboardMarkup(pay_keyboard, one_time_keyboard=False)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
+    return 14
+
+
+def enter_user_id(bot, update):
+    update.message.reply_text(DIALOGS["enter user id"], reply_markup=ReplyKeyboardRemove())
+    return 17
+
+
+def get_user_id(bot, update, user_data):
+    user_data["user_id"] = update.message.text
+    update.message.reply_text(DIALOGS["enter amount"])
+    return 19
+
+
+def mobile_phone(bot, update, user_data):
+    user_data["check_type_rest"] = "mobile"
+    user_data["number"] = None
+    markup = ReplyKeyboardMarkup(mobile_keyboard, one_time_keyboard=False)
+    update.message.reply_text(DIALOGS["command"], reply_markup=markup)
+    return 15
+
+
+def enter_mobile(bot, update):
+    update.message.reply_text(DIALOGS["enter phone"], reply_markup=ReplyKeyboardRemove())
+    return 16
+
+
+def get_mobile(bot, update, user_data):
+    user_data["number"] = update.message.text
+    update.message.reply_text(DIALOGS["enter amount"])
+    return 19
+
+
+def enter_amount(bot, update):
+    update.message.reply_text(DIALOGS["enter amount"], reply_markup=ReplyKeyboardRemove())
+    return 19
+
+
+def get_amount(bot, update, user_data):
+    markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
+    if user_data["check_type_rest"] == "mobile":
+        if user_data["number"] is None:
+            try:
+                update.message.reply_text(user_data["user"].transaction_telephone(update.message.text),
+                                          reply_markup=markup)
+            except TransactionNotFound:
+                update.message.reply_text(DIALOGS["tr_s_error"], reply_markup=markup)
+            except WrongNumber:
+                update.message.reply_text(DIALOGS["error number"], reply_markup=markup)
+            except WalletError:
+                update.message.reply_text(DIALOGS["error wallet"], reply_markup=markup)
+        else:
+            try:
+                update.message.reply_text(user_data["user"].transaction_telephone(update.message.text,
+                                                                                  user_data["number"]),
+                                          reply_markup=markup)
+            except TransactionError:
+                update.message.reply_text(DIALOGS["tr_s_error"], reply_markup=markup)
+            except WrongNumber:
+                update.message.reply_text(DIALOGS["error number"], reply_markup=markup)
+            except WalletError:
+                update.message.reply_text(DIALOGS["error wallet"], reply_markup=markup)
+    else:
+        try:
+            update.message.reply_text(user_data["user"].transaction_qiwi(user_data["user_id"], update.message.text),
+                                      reply_markup=markup)
+        except TransactionError:
+            update.message.reply_text(DIALOGS["tr_s_error"], reply_markup=markup)
+        except WalletError:
+            update.message.reply_text(DIALOGS["error wallet"], reply_markup=markup)
+    return 2
+
+
 def not_found(bot, update):
     update.message.reply_text(DIALOGS["func_app_soon"])
     return 2
@@ -255,6 +332,11 @@ check_keyboard = [[DIALOGS["get image"], DIALOGS["send to email"]],
 email_keyboard = [[DIALOGS["my email"], DIALOGS["other email"]],
                   button_back]
 
+pay_keyboard = [[DIALOGS["mobile phone"], DIALOGS["qiwi user"]],
+                button_back]
+mobile_keyboard = [[DIALOGS["my phone"], DIALOGS["other phone"]],
+                   button_back]
+
 markup = None
 
 
@@ -267,7 +349,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={1: [MessageHandler(Filters.text, check_token, pass_user_data=True)],
                 2: [CommandHandler(DIALOGS["balance"], balance, pass_user_data=True),
-                    CommandHandler(DIALOGS["pay"], not_found),
+                    CommandHandler(DIALOGS["pay"], pay, pass_user_data=True),
                     CommandHandler(DIALOGS["transactions"], transactions),
                     CommandHandler(DIALOGS["check"], check, pass_user_data=True),
                     CommandHandler(DIALOGS["terminals"], terminals),
@@ -303,7 +385,20 @@ def main():
 
                 11: [MessageHandler(Filters.text, get_email, pass_user_data=True)],
                 12: [MessageHandler(Filters.text, enter_transaction_id)],
-                13: [MessageHandler(Filters.text, get_transaction_id, pass_user_data=True)]},
+                13: [MessageHandler(Filters.text, get_transaction_id, pass_user_data=True)],
+
+                14: [RegexHandler("^{}$".format(DIALOGS["qiwi user"]), enter_user_id),
+                     RegexHandler("^{}$".format(DIALOGS["mobile phone"]), mobile_phone, pass_user_data=True),
+                     command_back],
+
+                15: [RegexHandler("^{}$".format(DIALOGS["my phone"]), enter_amount),
+                     RegexHandler("^{}$".format(DIALOGS["other phone"]), enter_mobile),
+                     command_back],
+
+                16: [MessageHandler(Filters.text, get_mobile, pass_user_data=True)],
+                17: [MessageHandler(Filters.text, get_user_id, pass_user_data=True)],
+                18: [MessageHandler(Filters.text, enter_amount)],
+                19: [MessageHandler(Filters.text, get_amount, pass_user_data=True)]},
 
 
         fallbacks=[CommandHandler("stop", stop)]
