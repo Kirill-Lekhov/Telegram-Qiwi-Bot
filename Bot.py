@@ -7,7 +7,7 @@ from QIWI_API import UserQiwi
 from QIWI_API import QiwiError, SyntaxisError, TokenError, NoRightsError, TransactionNotFound, WalletError, \
     HistoryError, MapError, NotFoundAddress, CheckError, WrongEmail, WrongNumber, TransactionError
 
-VERSION = "Bot v0.1\nQiwiAPI v0.1"
+VERSION = "Bot v1.0\nQiwiAPI v1.0"
 LANGUAGE = "eng"
 LANGUAGES = json.load(open("Languages.json"))
 DIALOGS = LANGUAGES[LANGUAGE]
@@ -40,13 +40,13 @@ def balance(bot, update, user_data):
 
 
 def transactions(bot, update):
-    markup = ReplyKeyboardMarkup(transactions_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(transactions_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 3
 
 
 def check_status(bot, update):
-    update.message.reply_text(DIALOGS["transaction_id"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["transaction_id"])
     return 4
 
 
@@ -74,21 +74,22 @@ def last(bot, update, user_data):
     return 2
 
 
-def terminals(bot, update):
-    markup = ReplyKeyboardMarkup(terminals_keyboard, one_time_keyboard=False)
+def terminals(bot, update, user_data):
+    user_data["location_coords"] = False
+    markup = ReplyKeyboardMarkup(terminals_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 5
 
 
 def take_command_found_address(bot, update, user_data):
     user_data["map"] = update.message.text == DIALOGS["on map"]
-    markup = ReplyKeyboardMarkup(terminals2_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(terminals2_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 6
 
 
 def take_address(bot, update):
-    update.message.reply_text(DIALOGS["ent_address"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["ent_address"])
     return 7
 
 
@@ -105,9 +106,9 @@ def answer_about_terminates(bot, update, user_data):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
 
     if update.message.text != DIALOGS["last ip"]:
-        try:
+        if user_data["location_coords"]:
             address = user_data["location_coords"]
-        except IndexError:
+        else:
             address = update.message.text
     else:
         address = None
@@ -137,7 +138,7 @@ def answer_about_terminates(bot, update, user_data):
 
 
 def options(bot, update):
-    markup = ReplyKeyboardMarkup(options_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(options_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 8
 
@@ -149,7 +150,7 @@ def get_info(bot, update, user_data):
 
 
 def take_new_token(bot, update):
-    update.message.reply_text(DIALOGS["new_token"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["new_token"])
     return 1
 
 
@@ -168,7 +169,7 @@ def version(bot, update):
 
 def check(bot, update, user_data):
     user_data["check_type_rest"] = None
-    markup = ReplyKeyboardMarkup(check_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(check_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 9
 
@@ -176,13 +177,13 @@ def check(bot, update, user_data):
 def dialog_email(bot, update, user_data):
     user_data["check_type_rest"] = "email"
     user_data["email"] = None
-    markup = ReplyKeyboardMarkup(email_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(email_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 10
 
 
 def enter_email(bot, update):
-    update.message.reply_text(DIALOGS["enter email"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["enter email"])
     return 11
 
 
@@ -193,7 +194,7 @@ def get_email(bot, update, user_data):
 
 
 def enter_transaction_id(bot, update):
-    update.message.reply_text(DIALOGS["enter transaction id"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["enter transaction id"])
     return 13
 
 
@@ -232,13 +233,13 @@ def get_transaction_id(bot, update, user_data):
 
 def pay(bot, update, user_data):
     user_data["check_type_rest"] = None
-    markup = ReplyKeyboardMarkup(pay_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(pay_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 14
 
 
 def enter_user_id(bot, update):
-    update.message.reply_text(DIALOGS["enter user id"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["enter user id"])
     return 17
 
 
@@ -251,13 +252,13 @@ def get_user_id(bot, update, user_data):
 def mobile_phone(bot, update, user_data):
     user_data["check_type_rest"] = "mobile"
     user_data["number"] = None
-    markup = ReplyKeyboardMarkup(mobile_keyboard, one_time_keyboard=False)
+    markup = ReplyKeyboardMarkup(mobile_keyboard, one_time_keyboard=True)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
     return 15
 
 
 def enter_mobile(bot, update):
-    update.message.reply_text(DIALOGS["enter phone"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["enter phone"])
     return 16
 
 
@@ -268,7 +269,7 @@ def get_mobile(bot, update, user_data):
 
 
 def enter_amount(bot, update):
-    update.message.reply_text(DIALOGS["enter amount"], reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(DIALOGS["enter amount"])
     return 19
 
 
@@ -304,11 +305,6 @@ def get_amount(bot, update, user_data):
             update.message.reply_text(DIALOGS["tr_s_error"], reply_markup=markup)
         except WalletError:
             update.message.reply_text(DIALOGS["error wallet"], reply_markup=markup)
-    return 2
-
-
-def not_found(bot, update):
-    update.message.reply_text(DIALOGS["func_app_soon"])
     return 2
 
 
@@ -368,7 +364,7 @@ def main():
                     CommandHandler(DIALOGS["pay"], pay, pass_user_data=True),
                     CommandHandler(DIALOGS["transactions"], transactions),
                     CommandHandler(DIALOGS["check"], check, pass_user_data=True),
-                    CommandHandler(DIALOGS["terminals"], terminals),
+                    CommandHandler(DIALOGS["terminals"], terminals, pass_user_data=True),
                     CommandHandler(DIALOGS["options"], options)],
 
                 3: [RegexHandler("^{}$".format(DIALOGS["check status"]), check_status),
