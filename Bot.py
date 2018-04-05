@@ -92,12 +92,28 @@ def take_address(bot, update):
     return 7
 
 
+def take_locaion(bot, update, user_data):
+    location = update.message.location
+    coords = (location["longitude"], location["latitude"])
+
+    user_data["location_coords"] = ",".join(map(str, coords))
+    answer_about_terminates(bot, update, user_data)
+    return 2
+
+
 def answer_about_terminates(bot, update, user_data):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
+
+    if update.message.text != DIALOGS["last ip"]:
+        try:
+            address = user_data["location_coords"]
+        except IndexError:
+            address = update.message.text
+    else:
+        address = None
+
     try:
-        url, address = user_data["user"].get_map_terminates(update.message.text
-                                                            if update.message.text != DIALOGS["last ip"]
-                                                            else None)
+        url, address = user_data["user"].get_map_terminates(address)
     except NotFoundAddress:
         update.message.reply_text(DIALOGS["wrong_address"], reply_markup=markup)
         return 2
@@ -206,11 +222,11 @@ def get_transaction_id(bot, update, user_data):
         try:
             user_data["user"].get_image_check(update.message.text, name)
             bot.sendPhoto(update.message.chat_id, open(name, mode="rb"), reply_markup=markup)
-            os.remove(name)
         except TransactionNotFound:
             update.message.reply_text(DIALOGS["tr_error"], reply_markup=markup)
         except CheckError:
             update.message.reply_text(DIALOGS["check error"], reply_markup=markup)
+        os.remove(name)
     return 2
 
 
@@ -367,7 +383,8 @@ def main():
                     RegexHandler("^{}$".format(DIALOGS["last ip"]), answer_about_terminates,
                                  pass_user_data=True),
                     command_back],
-                7: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True)],
+                7: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True),
+                    MessageHandler(Filters.location, take_locaion, pass_user_data=True)],
 
                 8: [RegexHandler("^{}$".format(DIALOGS["change token"]), take_new_token),
                     RegexHandler("^{}$".format(DIALOGS["update user"]), update_user, pass_user_data=True),
@@ -399,7 +416,6 @@ def main():
                 17: [MessageHandler(Filters.text, get_user_id, pass_user_data=True)],
                 18: [MessageHandler(Filters.text, enter_amount)],
                 19: [MessageHandler(Filters.text, get_amount, pass_user_data=True)]},
-
 
         fallbacks=[CommandHandler("stop", stop)]
     )

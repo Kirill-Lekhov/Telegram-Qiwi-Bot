@@ -332,7 +332,6 @@ class UserQiwi:
             raise TransactionNotFound
 
         typ = answer['type']
-        print(self.urls["Check"][0].format(transaction_id, "file", typ, "&format=JPEG"))
         write = write_file(self.headers, self.urls["Check"][0].format(transaction_id, "file", typ, "&format=JPEG"),
                            file_name)
 
@@ -395,7 +394,7 @@ class UserQiwi:
     def transaction_qiwi(self, account_id, amount):
         try:
             amount = round(float(amount), 2)
-        except TypeError:
+        except ValueError:
             raise WalletError
 
         data = {"id": str(int(time.time() * 1000)),
@@ -407,7 +406,7 @@ class UserQiwi:
                 "fields": {"account": account_id}}
 
         try:
-            request = requests.post(self.urls["Qiwi pay"][0], data=json.dumps(data),headers=self.headers)
+            request = requests.post(self.urls["Qiwi pay"][0], data=json.dumps(data), headers=self.headers)
             if request:
                 answer = request.json()
                 return "Successfully. Transaction ID: {}".format(answer["transaction"]["id"])
