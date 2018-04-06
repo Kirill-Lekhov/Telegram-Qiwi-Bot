@@ -4,8 +4,8 @@ from urllib.parse import unquote
 import json
 import os
 from QIWI_API import UserQiwi
-from QIWI_API import QiwiError, SyntaxisError, TokenError, NoRightsError, TransactionNotFound, WalletError, \
-    HistoryError, MapError, NotFoundAddress, CheckError, WrongEmail, WrongNumber, TransactionError
+from QIWI_API import QiwiError, TokenError, TransactionNotFound, WalletError, MapError, NotFoundAddress, CheckError, \
+    WrongEmail, WrongNumber, TransactionError
 
 VERSION = "Bot v1.0\nQiwiAPI v1.0"
 LANGUAGE = "eng"
@@ -308,6 +308,10 @@ def get_amount(bot, update, user_data):
     return 2
 
 
+def wrong_answer(bot, update):
+    update.message.reply_text(DIALOGS["wrong_answer"])
+
+
 def back(bot, update):
     markup = ReplyKeyboardMarkup(start_keyboard, one_time_keyboard=False)
     update.message.reply_text(DIALOGS["command"], reply_markup=markup)
@@ -330,7 +334,6 @@ transactions_keyboard = [[DIALOGS["check status"], DIALOGS["last"]],
 
 terminals_keyboard = [[DIALOGS["on map"], DIALOGS["address"]],
                       button_back]
-
 terminals2_keyboard = [[DIALOGS["last ip"], DIALOGS["enter address"]],
                        button_back]
 
@@ -340,7 +343,6 @@ options_keyboard = [[DIALOGS["change token"], DIALOGS["version"]],
 
 check_keyboard = [[DIALOGS["get image"], DIALOGS["send to email"]],
                   button_back]
-
 email_keyboard = [[DIALOGS["my email"], DIALOGS["other email"]],
                   button_back]
 
@@ -356,6 +358,7 @@ def main():
     updater = Updater("TOKEN")
     dp = updater.dispatcher
     command_back = CommandHandler(LANGUAGES[LANGUAGE]["back"], back)
+    wrong_answer_hd = MessageHandler(Filters.text, wrong_answer)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -365,20 +368,21 @@ def main():
                     CommandHandler(DIALOGS["transactions"], transactions),
                     CommandHandler(DIALOGS["check"], check, pass_user_data=True),
                     CommandHandler(DIALOGS["terminals"], terminals, pass_user_data=True),
-                    CommandHandler(DIALOGS["options"], options)],
+                    CommandHandler(DIALOGS["options"], options),
+                    wrong_answer_hd],
 
                 3: [RegexHandler("^{}$".format(DIALOGS["check status"]), check_status),
                     RegexHandler("^{}$".format(DIALOGS["last"]), last, pass_user_data=True),
-                    command_back],
+                    command_back, wrong_answer_hd],
                 4: [MessageHandler(Filters.text, answer_about_transaction, pass_user_data=True)],
 
                 5: [RegexHandler("{}|{}".format(DIALOGS["on map"], DIALOGS["address"]),
                                  take_command_found_address, pass_user_data=True),
-                    command_back],
+                    command_back, wrong_answer_hd],
                 6: [RegexHandler("^{}$".format(DIALOGS["enter address"]), take_address),
                     RegexHandler("^{}$".format(DIALOGS["last ip"]), answer_about_terminates,
                                  pass_user_data=True),
-                    command_back],
+                    command_back, wrong_answer_hd],
                 7: [MessageHandler(Filters.text, answer_about_terminates, pass_user_data=True),
                     MessageHandler(Filters.location, take_locaion, pass_user_data=True)],
 
@@ -386,15 +390,15 @@ def main():
                     RegexHandler("^{}$".format(DIALOGS["update user"]), update_user, pass_user_data=True),
                     RegexHandler("^{}$".format(DIALOGS["version"]), version),
                     RegexHandler("^{}$".format(DIALOGS["get info"]), get_info, pass_user_data=True),
-                    command_back],
+                    command_back, wrong_answer_hd],
 
                 9: [RegexHandler("^{}$".format(DIALOGS["get image"]), enter_transaction_id),
                     RegexHandler("^{}$".format(DIALOGS["send to email"]), dialog_email, pass_user_data=True),
-                    command_back],
+                    command_back, wrong_answer_hd],
 
                 10: [RegexHandler("^{}$".format(DIALOGS["my email"]), enter_transaction_id),
                      RegexHandler("^{}$".format(DIALOGS["other email"]), enter_email),
-                     command_back],
+                     command_back, wrong_answer_hd],
 
                 11: [MessageHandler(Filters.text, get_email, pass_user_data=True)],
                 12: [MessageHandler(Filters.text, enter_transaction_id)],
@@ -402,11 +406,11 @@ def main():
 
                 14: [RegexHandler("^{}$".format(DIALOGS["qiwi user"]), enter_user_id),
                      RegexHandler("^{}$".format(DIALOGS["mobile phone"]), mobile_phone, pass_user_data=True),
-                     command_back],
+                     command_back, wrong_answer_hd],
 
                 15: [RegexHandler("^{}$".format(DIALOGS["my phone"]), enter_amount),
                      RegexHandler("^{}$".format(DIALOGS["other phone"]), enter_mobile),
-                     command_back],
+                     command_back, wrong_answer_hd],
 
                 16: [MessageHandler(Filters.text, get_mobile, pass_user_data=True)],
                 17: [MessageHandler(Filters.text, get_user_id, pass_user_data=True)],

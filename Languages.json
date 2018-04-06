@@ -23,6 +23,7 @@
           "error number": "Wrong number",
           "error wallet": "Incorrect amount",
           "tr_s_error": "Transaction attempt failed",
+          "wrong_answer": "You should use the keyboard",
           "off": "Shutdown",
 
           "balance": "balance",
@@ -79,6 +80,7 @@
           "error number": "Неправильный номер",
           "error wallet": "Неправильная сумма",
           "tr_s_error": "Не удалось совершить транзакцию",
+          "wrong_answer": "Используйте клавиатуру",
           "off": "Завершение работы",
           
           "balance": "баланс",
