@@ -7,6 +7,7 @@
 2) Как получить токен?: https://developer.qiwi.com/ru/qiwi-wallet-personal/#auth_api
 
 Используемые API:
+
   QiwiAPI: https://developer.qiwi.com/ru/qiwi-wallet-personal/
   
   QiwiAPI карт терминалов: https://developer.qiwi.com/ru/qiwi-map/
